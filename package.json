@@ -6,8 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "sh deploy.sh"
   },
   "devDependencies": {
     "gh-pages": "^6.3.0",
