@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="da">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Varmt brugsvand dimensionering v0.33_beta - DS 439:2024 + Rør isolering DS452 </title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="icon" type="image/png" href="flavicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+
+<body>
+    <div class="container-fluid main-container p-3">
+        <input type="file" id="hiddenImportInput" accept=".json" style="display: none;"
+            onchange="importProject(this.files[0])">
+
+        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary border-0 p-2" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false" title="Projektmenu">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                        class="bi bi-list" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd"
+                            d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z" />
+                    </svg>
+                </button>
+                <ul class="dropdown-menu shadow">
+                    <li>
+                        <h6 class="dropdown-header">Projekt</h6>
+                    </li>
+                    <li><a class="dropdown-item text-danger" href="#" onclick="resetProject()">🗑️ Nyt Projekt
+                            (Nulstil)</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="renumberAndSortProject()">✨ Omdøb & Sorter (Clean
+                            Up)</a></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li><a class="dropdown-item" href="#"
+                            onclick="document.getElementById('hiddenImportInput').click()">📂 Import/Hent Projekt...</a>
+                    </li>
+                    <li><a class="dropdown-item" href="#" onclick="exportProject()">💾 Eksport/Gem Projekt</a></li>
+                </ul>
+            </div>
+
+            <div class="text-center">
+                <h1 class="h5 m-0 user-select-none">NIRAS Brugsvandsberegner Version 0.34 Beta
+                    <small class="text-muted fw-normal">Beregning jf. DS 439:2024 & DS 452</small>
+                </h1>
+                <div style="font-size: 0.75rem; margin-top: -2px;">
+                    <a href="https://www.niras.dk" target="_blank" class="text-decoration-none text-secondary">©
+                        NIRAS</a>
+                </div>
+            </div>
+
+            <button
+                class="btn btn-outline-info rounded-circle d-flex align-items-center justify-content-center shadow-sm"
+                style="width: 38px; height: 38px; font-weight: bold;" data-bs-toggle="modal" data-bs-target="#helpModal"
+                title="Hjælp & Info">
+                ?
+            </button>
+        </div>
+
+        <div class="row main-row">
+            <div id="leftPanel" class="col-lg-6 scrollable-column">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><span class="badge bg-primary me-2">1</span>Input Data</h5>
+                    </div>
+                    <div class="card-body">
+
+                        <div class="mb-3">
+                            <label for="projectName" class="form-label fw-bold">Projekt Navn</label>
+                            <input type="text" class="form-control" id="projectName"
+                                placeholder="Indtast projektnavn (f.eks. Adresse eller Sagsnr.)"
+                                oninput="setProjektErÆndret()">
+                        </div>
+
+                        <div class="accordion" id="inputAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header"><button class="accordion-button" data-bs-toggle="collapse"
+                                        data-bs-target="#collapseGenerelt" aria-expanded="true">Generelle
+                                        Systemdata</button></h2>
+                                <div id="collapseGenerelt" class="accordion-collapse collapse show"
+                                    data-bs-parent="#inputAccordion">
+                                    <div class="accordion-body">
+                                        <h6>Grundlæggende Data</h6>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-6"><label class="form-label" for="pln">Forsyningstryk
+                                                    (p<sub>ln</sub>) <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Forsyningstryk (p_ln)"
+                                                        data-bs-content="Laveste normalt forekommende vandtryk (p_ln) i forsyningspunktet. Angives i Pascal (KPa). Jf. DS 439:2024, afsnit 6.2.2.1.">(?)</a></label>
+                                                <div class="input-group"><input id="pln" type="number" min="0"
+                                                        class="form-control" value="400"><span
+                                                        class="input-group-text">KPa</span></div>
+                                            </div>
+                                            <div class="col-md-6"><label class="form-label"
+                                                    for="forsyningens_kote">Forsyningens kote <a tabindex="0"
+                                                        class="info-popover" role="button" data-bs-toggle="popover"
+                                                        data-bs-placement="right" data-bs-title="Forsyningens Kote"
+                                                        data-bs-content="Den geodætiske kote (højde i meter) for forsyningspunktet. Anvendes som reference for beregning af løftehøjde til tapsteder. Jf. DS 439:2024, afsnit 6.3.5.1.">(?)</a></label>
+                                                <div class="input-group"><input id="forsyningens_kote" type="number"
+                                                        class="form-control allow-negative" value="0"><span
+                                                        class="input-group-text">m</span></div>
+                                            </div>
+                                            <div class="col-md-6"><label class="form-label" for="T_k">Vandtemperatur
+                                                    v/stik (Koldt Vand) <a tabindex="0" class="info-popover"
+                                                        role="button" data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Koldtvandstemperatur"
+                                                        data-bs-content="Temperaturen på det kolde vand, når det kommer ind i bygningen (Vandstik). Standard er 10°C jf. DS 439.">(?)</a></label>
+                                                <div class="input-group"><input id="T_k" type="number" min="0"
+                                                        class="form-control" value="10"><span
+                                                        class="input-group-text">°C</span></div>
+                                            </div>
+                                            <div class="col-md-6"><label class="form-label" for="min_tap_tryk">Min. tryk
+                                                    ved tapsted <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Minimumstryk ved Tapsted"
+                                                        data-bs-content="Det mindste tryk, der ønskes til rådighed *ved* tapstedet (efter koblingsledning og armatur). Dette er et designkrav (ofte 150-200 KPa / 1,5-2,0 bar). Jf. DS 439:2024, afsnit 6.3.5 vedr. tryktab i armaturer.">(?)</a></label>
+                                                <div class="input-group"><input id="min_tap_tryk" type="number" min="0"
+                                                        class="form-control" value="150"><span
+                                                        class="input-group-text">KPa</span></div>
+                                            </div>
+                                            <div class="col-md-6"><label class="form-label"
+                                                    for="T_v">Varmtvandstemperatur (T<sub>v</sub>) <a tabindex="0"
+                                                        class="info-popover" role="button" data-bs-toggle="popover"
+                                                        data-bs-placement="right"
+                                                        data-bs-title="Varmtvandstemperatur (T_v)"
+                                                        data-bs-content="Dimensionerende temperatur for det varme brugsvand. Bør ikke falde til under 50°C. En typisk designtemperatur er 55°C. Jf. DS 439:2024, afsnit 5.6.1 og 6.6.2.1.">(?)</a></label>
+                                                <div class="input-group"><input id="T_v" type="number" min="0"
+                                                        class="form-control" value="55"><span
+                                                        class="input-group-text">°C</span></div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="T_omg">Omgivelsestemperatur (Indendørs)
+                                                    <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Omgivelsestemperatur (Indendørs)"
+                                                        data-bs-content="Den omgivende temperatur for rør placeret i opvarmede rum (rum > 5°C). Anvendes til beregning af varmetab. Jf. DS 452, afsnit 3.12 og 6.1.11.">(?)</a></label>
+                                                <div class="input-group">
+                                                    <input id="T_omg" type="number" class="form-control" value="20">
+                                                    <span class="input-group-text">°C</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="T_omg_ude">Omgivelsestemperatur
+                                                    (Udendørs) <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Omgivelsestemperatur (Udendørs)"
+                                                        data-bs-content="Den omgivende temperatur for rør placeret 'ude' (i det fri, i jord, eller i uopvarmede rum < 5°C). Anvendes til beregning af varmetab. Jf. DS 452, afsnit 3.18.">(?)</a></label>
+                                                <div class="input-group">
+                                                    <input id="T_omg_ude" type="number" class="form-control" value="5">
+                                                    <span class="input-group-text">°C</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6"><label class="form-label" for="dT"> Max ΔT for VV
+                                                    cirkulation <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Ønsket Delta-T (Cirkulation)"
+                                                        data-bs-content="Det acceptable temperaturtab (Delta-Temperatur) i cirkulationskredsen. Typisk 5 K (5°C). Et lavere dT kræver højere flow for at dække samme varmetab. Jf. DS 439:2024, afsnit 5.5.13.">(?)</a></label>
+                                                <div class="input-group"><input id="dT" type="number" min="0.1"
+                                                        class="form-control" value="5"><span
+                                                        class="input-group-text">K</span></div>
+                                            </div>
+                                            <div class="col-md-6"><label class="form-label" for="lambda">Isoleringsevne
+                                                    (Lambda, λ) <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Isoleringsevne (Lambda, λ)"
+                                                        data-bs-content="Varmeledningsevnen for det valgte isoleringsmateriale. 0.037 W/m·K er en typisk værdi for mineraluld. Bruges til beregning af varmetab jf. DS 452.">(?)</a></label>
+                                                <div class="input-group"><input id="lambda" type="number" min="0"
+                                                        step="0.001" class="form-control" value="0.037"><span
+                                                        class="input-group-text">W/m·K</span></div>
+                                            </div>
+                                            <hr>
+                                            <h6>Automatisk Dimensionering</h6>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" role="switch"
+                                                    id="autoDimToggle" onchange="toggleAutoDim(this.checked)" checked>
+                                                <label class="form-check-label" for="autoDimToggle"><b>Aktiver "Design
+                                                        Mode"</b></label>
+                                            </div>
+
+                                            <div class="row g-3" id="autoDimInputs">
+                                                <div class="col-md-12">
+                                                    <label class="form-label" for="dimPrinciple">Dimensioneringsprincip
+                                                        for rør <a tabindex="0" class="info-popover" role="button"
+                                                            data-bs-toggle="popover" data-bs-placement="right"
+                                                            data-bs-title="Dimensioneringsprincip"
+                                                            data-bs-content="Vælg, hvordan 'Design Mode' skal prioritere. 'Kombineret' er standard. 'Global optimering' er langsommere, men forsøger at finde den mest materialebesparende løsning, der overholder alle globale trykkrav.">(?)</a></label>
+                                                    <select id="dimPrinciple" class="form-select"
+                                                        onchange="toggleGlobalOptimizationInputs()">
+                                                        <option value="combined" selected>Kombineret (Hastighed &
+                                                            Tryktab)</option>
+                                                        <option value="pressure_drop">Optimer kun efter Tryktab (Pa/m)
+                                                        </option>
+                                                        <option value="velocity">Optimer kun efter Hastighed (m/s)
+                                                        </option>
+                                                        <option value="min_velocity_pressure">Mindste tryktab (med min.
+                                                            hastighed)</option>
+
+                                                    </select>
+                                                </div>
+
+                                                <div id="standardInputs" class="contents">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-4"><label class="form-label"
+                                                                for="max_dp_m">Max Δp Fremløb <a tabindex="0"
+                                                                    class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="bottom"
+                                                                    data-bs-title="Max Tryktab (Pa/m)"
+                                                                    data-bs-content="Maksimalt tilladt tryktab pr. meter rør (Pa/m). Anvendes af 'Design Mode' til at vælge rørdimension. En almindelig designværdi er 200-500 Pa/m, Afhæningt af om der benyttes trykforøger.">(?)</a></label>
+                                                            <div class="input-group"><input id="max_dp_m" type="number"
+                                                                    min="0" value="500" class="form-control"><span
+                                                                    class="input-group-text">Pa/m</span></div>
+                                                        </div>
+                                                        <div class="col-md-4"><label class="form-label"
+                                                                for="max_v_f">Max v Fremløb <a tabindex="0"
+                                                                    class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="bottom"
+                                                                    data-bs-title="Max Hastighed (Fremløb)"
+                                                                    data-bs-content="Maksimal tilladt vandhastighed (m/s) i fremløbsrør. Anvendes af 'Design Mode'. En almindelig designværdi er 0,8-1,4 m/s, Afhæningt af om der benyttes trykforøger. For høje hastigheder kan medføre støj og korrosion. Jf. DS 439:2024, afsnit 5.4 og Tabel 10.">(?)</a></label>
+                                                            <div class="input-group"><input id="max_v_f" type="number"
+                                                                    min="0" value="1.0" class="form-control"><span
+                                                                    class="input-group-text">m/s</span></div>
+                                                        </div>
+                                                        <div class="col-md-4"><label class="form-label"
+                                                                for="min_v_f">Min v Fremløb <a tabindex="0"
+                                                                    class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="bottom"
+                                                                    data-bs-title="Min Hastighed (Fremløb)"
+                                                                    data-bs-content="Mindste ønskede vandhastighed (m/s) i fremløbsrør for at sikre turbulent strømning og modvirke biofilm. Jf. DS 439:2024, afsnit 5.5.14.">(?)</a></label>
+                                                            <div class="input-group"><input id="min_v_f" type="number"
+                                                                    min="0" step="0.1" value="0.5"
+                                                                    class="form-control"><span
+                                                                    class="input-group-text">m/s</span></div>
+                                                        </div>
+                                                        <div class="col-md-6"><label class="form-label"
+                                                                for="max_v_c">Max v Cirkulation <a tabindex="0"
+                                                                    class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="bottom"
+                                                                    data-bs-title="Max Hastighed (Cirkulation)"
+                                                                    data-bs-content="Maksimal tilladt vandhastighed (m/s) i cirkulationsledninger. En almindelig designværdi er 1.0 m/s for at undgå slid og erosion.">(?)</a></label>
+                                                            <div class="input-group"><input id="max_v_c" type="number"
+                                                                    min="0" step="0.1" value="1.0"
+                                                                    class="form-control"><span
+                                                                    class="input-group-text">m/s</span></div>
+                                                        </div>
+                                                        <div class="col-md-6"><label class="form-label"
+                                                                for="min_v_c">Min v Cirkulation <a tabindex="0"
+                                                                    class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="bottom"
+                                                                    data-bs-title="Min Hastighed (Cirkulation)"
+                                                                    data-bs-content="Mindste ønskede vandhastighed (m/s) i cirkulationsledninger for at sikre tilstrækkeligt flow og modvirke biofilm jf. DS 439:2024. Standardværdi er ofte 0,2 m/s.">(?)</a></label>
+                                                            <div class="input-group"><input id="min_v_c" type="number"
+                                                                    min="0" step="0.1" value="0.2"
+                                                                    class="form-control"><span
+                                                                    class="input-group-text">m/s</span></div>
+                                                        </div>
+                                                        <div class="col-md-6"><label class="form-label"
+                                                                for="fittings_pct">Generelt tillæg for fittings (DS 439)
+                                                                <a tabindex="0" class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="right"
+                                                                    data-bs-title="Fittings tillæg (%)"
+                                                                    data-bs-content="Procentvist tillæg til det rene rørtryktab for at dække enkeltmodstande (bøjninger, T-stykker), hvis disse ikke indtastes specifikt som Zeta. DS 439 anbefaler 25%, hvis specifikke data mangler.">(?)</a></label>
+                                                            <div class="input-group"><input id="fittings_pct"
+                                                                    type="number" min="0" class="form-control"
+                                                                    value="25" placeholder="F.eks. 25"><span
+                                                                    class="input-group-text">%</span></div>
+                                                        </div>
+                                                        <div class="col-md-6"><label class="form-label"
+                                                                for="heat_loss_pct">Tillæg til varmetab (Kuldebroer) <a
+                                                                    tabindex="0" class="info-popover" role="button"
+                                                                    data-bs-toggle="popover" data-bs-placement="right"
+                                                                    data-bs-title="Varmetabstillæg (%)"
+                                                                    data-bs-content="Ekstra procenttillæg til det beregnede varmetab for at dække tab fra rørbæringer, ventiler og uisolerede komponenter. DS 452 anbefaler typisk 15% indvendigt og 25% udvendigt, hvis det ikke beregnes specifikt.">(?)</a></label>
+                                                            <div class="input-group"><input id="heat_loss_pct"
+                                                                    type="number" min="0" class="form-control"
+                                                                    value="20" placeholder="F.eks. 20"><span
+                                                                    class="input-group-text">%</span></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div id="globalInputs" class="contents" style="display: none;">
+                                                    <hr>
+                                                    <h6 class="form-label">Grænse for Global Optimering</h6>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio"
+                                                            name="globalConstraint" id="globalConstraintDp"
+                                                            value="pressure_drop" checked>
+                                                        <label class="form-check-label"
+                                                            for="globalConstraintDp">Overhold Max Tryktab</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio"
+                                                            name="globalConstraint" id="globalConstraintV">
+                                                        <label class="form-check-label" for="globalConstraintV">Overhold
+                                                            Max Hastighed</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <hr>
+                                            <h6>Brugerdefinerede Tapsteder</h6>
+                                            <div id="customTapsteder" class="mb-3"></div>
+                                            <div class="input-group mb-2">
+                                                <input type="text" id="newTapName" class="form-control"
+                                                    placeholder="Navn" aria-label="Navn på nyt tapsted"
+                                                    title="Navn på det nye tapsted, f.eks. 'Stort Bad'">
+                                                <input type="number" id="newTapQf" class="form-control" min="0"
+                                                    step="0.01" placeholder="qf (l/s)" aria-label="qf værdi"
+                                                    title="Normvandstrøm (qf) i l/s for det nye tapsted">
+                                                <input type="checkbox" id="newTapApartment" class="form-check-input m-2"
+                                                    title="Lejlighed? (Vigtigt for Beholder Metode A)">
+                                                <button class="btn btn-outline-primary" onclick="addCustomTapsted()"
+                                                    title="Gem det nye brugerdefinerede tapsted">Tilføj</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header"><button class="accordion-button collapsed"
+                                            data-bs-toggle="collapse" data-bs-target="#collapseKoldt"
+                                            aria-expanded="false">Koldtvands netværk (KV)</button></h2>
+                                    <div id="collapseKoldt" class="accordion-collapse collapse"
+                                        data-bs-parent="#inputAccordion">
+                                        <div class="accordion-body">
+                                            <div id="strengeContainerKV"></div>
+                                            <button class="btn btn-primary mt-2" aria-label="Tilføj KV-streng"
+                                                onclick="addStreng_kv()">+ Tilføj KV-streng</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" data-bs-toggle="collapse"
+                                            data-bs-target="#collapseFremløb" aria-expanded="false">
+                                            Varmtvands netværk (Tapsteder)
+                                        </button>
+                                    </h2>
+                                    <div id="collapseFremløb" class="accordion-collapse collapse show"
+                                        data-bs-parent="#inputAccordion">
+                                        <div class="accordion-body">
+                                            <div id="strengeContainerVV"></div>
+                                            <button class="btn btn-danger mt-2" aria-label="Tilføj VV-streng"
+                                                onclick="addStreng_vv()">+ Tilføj VV-streng</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header"><button class="accordion-button collapsed"
+                                            data-bs-toggle="collapse" data-bs-target="#collapseRetur"
+                                            aria-expanded="false">Cirkulations Netværk</button></h2>
+                                    <div id="collapseRetur" class="accordion-collapse collapse show"
+                                        data-bs-parent="#inputAccordion">
+                                        <div class="accordion-body">
+                                            <table class="table table-sm table-borderless mb-0"
+                                                style="table-layout: fixed;">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="width: 20%;">ID/Navn</th>
+                                                        <th style="width: 18%;">Forælder</th>
+                                                        <th style="width: 22%;">Mat./Type</th>
+                                                        <th style="width: 10%;">Plac.</th>
+                                                        <th style="width: 12%;">Isol. Klasse</th>
+                                                        <th style="width: 10%;">Dim [mm]</th>
+                                                        <th style="width: 8%;">Længde [m]</th>
+                                                        <th style="width: 7%;">Zeta [ζ]</th>
+                                                        <th style="width: 5%;"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="returContainerBody"></tbody>
+                                            </table>
+                                            <div class="d-flex gap-2 mt-2">
+                                                <button class="btn btn-primary" style="white-space: nowrap;"
+                                                    aria-label="Tilføj retur-rør" onclick="addCirkulationRor()">+
+                                                    Cirkulationsrør</button>
+                                                <div class="vr"></div>
+                                                <button class="btn btn-warning" style="white-space: nowrap;"
+                                                    aria-label="Tilføj cirkulationsventil" onclick="addValve()">+
+                                                    Cirkulationsventil</button>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <h5 class="m-0"><span class="badge bg-success me-2">2</span>Resultater</h5>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="form-check form-switch mb-0"
+                                    title="Vis komponent-navne i diagram og lister">
+                                    <input class="form-check-input" type="checkbox" id="toggleNames" role="switch"
+                                        onchange="toggleDisplayNames(this.checked)">
+                                    <label class="form-check-label small" for="toggleNames">Vis Navne</label>
+                                </div>
+
+                                <div class="dropdown">
+                                    <button class="btn btn-link text-dark p-0 text-decoration-none border-0"
+                                        type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                                        title="Rapporter & Data">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                                            fill="currentColor" class="bi bi-three-dots-vertical" viewBox="0 0 16 16">
+                                            <path
+                                                d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z" />
+                                        </svg>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                                        <li>
+                                            <h6 class="dropdown-header">Eksport & Print</h6>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="showCalculationReport()">
+                                                📄 Vis Rapport (HTML/Print)
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="exportDetailedResults()">
+                                                📊 Eksport Detaljer (JSON)
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid mb-3">
+                                <button class="btn btn-success py-2 shadow-sm fw-bold" onclick="beregn()">
+                                    ▶ Beregn Hele Systemet
+                                </button>
+                            </div>
+                            <div id="advarsler" class="mb-3"></div>
+                            <ul class="nav nav-tabs" role="tablist">
+                                <li class="nav-item" role="presentation"><button class="nav-link active"
+                                        data-bs-toggle="tab" data-bs-target="#summary"
+                                        type="button">Opsummering</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab"
+                                        data-bs-target="#beholder" type="button">Beholder</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab"
+                                        data-bs-target="#rør" type="button">Rørdata</button></li>
+                                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab"
+                                        data-bs-target="#cirkulation" type="button">Komponenter</button></li>
+                            </ul>
+                            <div class="tab-content pt-3">
+                                <div class="tab-pane fade show active" id="summary" role="tabpanel">
+                                    <table class="table table-sm">
+                                        <tbody id="summaryTableBody"></tbody>
+                                    </table>
+                                </div>
+                                <div class="tab-pane fade" id="beholder" role="tabpanel">
+                                    <div id="beholderResult" class="mt-3">
+                                        <div class="mb-4">
+                                            <h5>Vælg beregningsmetode</h5>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="beholderMetode"
+                                                    id="metodeA" value="A" onchange="toggleBeholderMetode()" checked>
+                                                <label class="form-check-label" for="metodeA">
+                                                    <b>Metode A: Etageboliger (DS 439)</b>
+                                                    <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Metode A (P-V Diagram)"
+                                                        data-bs-content="Den officielle metode til etageboliger med mange lejligheder. Beregningen baseres på antallet af 'Normallejligheder' og bruger DS 439 P-V diagrammer til at finde sammenhængen mellem effekt og volumen. Kræver tapsteder af typen 'Lejlighed'.">(?)</a>
+                                                    <br><small class="text-muted">Standard for boligblokke. Kræver
+                                                        tapsteder defineret som 'Lejlighed'.</small>
+                                                </label>
+                                            </div>
+                                            <div id="metodeA_warning" class="alert alert-warning d-none mt-1 py-2">
+                                                <small><b>OBS:</b> Du har valgt Metode A, men der er ingen tapsteder
+                                                    markeret som "Lejlighed" i dit projekt. Tilføj tapsteder af typen
+                                                    "Lejlighed (standard)" for at bruge denne metode.</small>
+                                            </div>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="beholderMetode"
+                                                    id="metodeB" value="B" onchange="toggleBeholderMetode()">
+                                                <label class="form-check-label" for="metodeB">
+                                                    <b>Metode B: Enfamiliehuse & Mindre Bygninger</b>
+                                                    <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Metode B (Største Tappested)"
+                                                        data-bs-content="Simpel dimensionering baseret på det største enkelte tappested (f.eks. badekar eller bruser) og en ønsket opvarmningstid. Velegnet til enfamiliehuse, sommerhuse og små erhverv.">(?)</a>
+                                                    <br><small class="text-muted">Baseret på største enkeltforbruger
+                                                        (f.eks. badekar).</small>
+                                                </label>
+                                            </div>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="beholderMetode"
+                                                    id="metodeC" value="C" onchange="toggleBeholderMetode()">
+                                                <label class="form-check-label" for="metodeC">
+                                                    <b>Metode C: Specialbyggeri (Tappemønster)</b>
+                                                    <a tabindex="0" class="info-popover" role="button"
+                                                        data-bs-toggle="popover" data-bs-placement="right"
+                                                        data-bs-title="Metode C (Simulering)"
+                                                        data-bs-content="Avanceret beregning hvor du definerer et specifikt tappemønster over tid (f.eks. 20 brusere kl. 08:00). Bruges til sportshaller, hoteller, campingpladser og industri.">(?)</a>
+                                                    <br><small class="text-muted">For sportshaller, industri og
+                                                        bygninger med særlige spidsbelastninger.</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <hr>
+
+                                        <div id="metodeA_inputs" class="beholder-metode">
+                                            <h6 class="mb-3">Input for Metode A</h6>
+                                            <div id="metodeA_content"></div>
+                                        </div>
+
+                                        <div id="metodeB_inputs" class="beholder-metode" style="display:none;">
+                                            <h6 class="mb-3">Input for Metode B</h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-4"><label class="form-label" for="metodeB_flow">Maks.
+                                                        flow (største forbruger)</label>
+                                                    <div class="input-group"><input id="metodeB_flow" type="number"
+                                                            step="0.01" value="0.3" class="form-control"><span
+                                                            class="input-group-text">l/s</span></div>
+                                                </div>
+                                                <div class="col-md-4"><label class="form-label"
+                                                        for="metodeB_varighed">Varighed af tapning</label>
+                                                    <div class="input-group"><input id="metodeB_varighed" type="number"
+                                                            value="10" class="form-control"><span
+                                                            class="input-group-text">min</span></div>
+                                                </div>
+                                                <div class="col-md-4"><label class="form-label"
+                                                        for="metodeB_effekt">Varmekildens effekt</label>
+                                                    <div class="input-group"><input id="metodeB_effekt" type="number"
+                                                            value="25" class="form-control"><span
+                                                            class="input-group-text">kW</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div id="metodeC_inputs" class="beholder-metode" style="display:none;">
+                                            <h6 class="mb-3">Input for Metode C</h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-6"><label class="form-label"
+                                                        for="metodeC_effekt">Varmekildens effekt</label>
+                                                    <div class="input-group"><input id="metodeC_effekt" type="number"
+                                                            value="40" class="form-control"><span
+                                                            class="input-group-text">kW</span></div>
+                                                </div>
+                                            </div>
+                                            <p class="mt-3 mb-1">Definér tappemønster for spidsbelastningsperioden:</p>
+                                            <table class="table table-sm table-bordered">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Flow [l/s]</th>
+                                                        <th>Starttid [min]</th>
+                                                        <th>Varighed [min]</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="metodeC_tablebody">
+                                                    <tr>
+                                                        <td><input type="number" name="mc-flow-1" step="0.01"
+                                                                class="form-control form-control-sm" value="0.3"></td>
+                                                        <td><input type="number" name="mc-start-1"
+                                                                class="form-control form-control-sm" value="0"></td>
+                                                        <td><input type="number" name="mc-varighed-1"
+                                                                class="form-control form-control-sm" value="10"></td>
+                                                        <td><button class="btn btn-sm btn-outline-danger"
+                                                                onclick="this.closest('tr').remove()">&times;</button>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><input type="number" name="mc-flow-2" step="0.01"
+                                                                class="form-control form-control-sm" value="0.3"></td>
+                                                        <td><input type="number" name="mc-start-2"
+                                                                class="form-control form-control-sm" value="2"></td>
+                                                        <td><input type="number" name="mc-varighed-2"
+                                                                class="form-control form-control-sm" value="8"></td>
+                                                        <td><button class="btn btn-sm btn-outline-danger"
+                                                                onclick="this.closest('tr').remove()">&times;</button>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                            <button class="btn btn-sm btn-outline-secondary"
+                                                onclick="addTappemonsterRow()">+ Tilføj række</button>
+                                        </div>
+
+                                        <div class="mt-4">
+                                            <button class="btn btn-primary w-100" onclick="beregnBeholder()">Beregn
+                                                Beholder</button>
+                                        </div>
+                                        <div class="mt-3 p-3 bg-light rounded">
+                                            <h5>Beregnet Beholdervolumen</h5>
+                                            <p class="display-6" id="beholderResultatVolumen">- L</p>
+                                            <small id="beholderResultatBeskrivelse" class="text-muted">Resultatet vises
+                                                her efter beregning.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="rør" role="tabpanel">
+                                    <table class="table table-sm table-bordered table-hover" id="rørResultTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                                <div class="tab-pane fade" id="cirkulation" role="tabpanel">
+                                    <table class="table table-sm table-bordered table-hover" id="cirkResultTable">
+                                        <thead></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 d-flex flex-column" id="diagramContainer">
+                <div class="card flex-grow-1">
+                    <div class="card-header">
+                        <h5><span class="badge bg-secondary me-2">3</span>Interaktivt Diagram</h5>
+                    </div>
+                    <div class="card-body p-0 flex-grow-1 d-flex flex-column">
+                        <div class="p-2 d-flex gap-2">
+                            <button class="btn btn-outline-secondary flex-grow-1"
+                                onclick="buildNetworkAndRender()">Opdater Diagram</button>
+                            <button class="btn btn-outline-primary" onclick="zoomToFit()"
+                                title="Zoom så alt passer i billedet">Zoom Alt</button>
+                            <button class="btn btn-outline-secondary btn-sm ms-2" onclick="toggleSidebar()"
+                                id="toggleSidebarBtn">↔️ Udvid Diagram</button>
+                        </div>
+
+                        <div class="card mb-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex align-items-center gap-3 mb-2">
+                                    <strong class="me-2">Farvevisning:</strong>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="visMode" id="visIngen"
+                                            value="none" onclick="updateDiagramStyles()" checked>
+                                        <label class="form-check-label" for="visIngen">Ingen</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="visMode" id="visHastighed"
+                                            value="velocity" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visHastighed">Hastighed</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="visMode" id="visTryktab"
+                                            value="pressure_drop" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visTryktab">Tryktab (Pa/m)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="visMode" id="visTrykAbsolut"
+                                            value="absolute_pressure" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visTrykAbsolut">Tilgængeligt Tryk
+                                            (kPa)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="visMode" id="visVarmetab"
+                                            value="heat_loss" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visVarmetab">Varmetab (W/m)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="visMode" id="visTemp"
+                                            value="temp" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visTemp">Temperatur (°C)</label>
+                                    </div>
+                                    <div class="vr"></div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="visLegend"
+                                            onclick="updateLegend()" checked>
+                                        <label class="form-check-label" for="visLegend">Vis farveskala</label>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3 border-top pt-2">
+                                    <strong class="me-2">Vis data:</strong>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="visDim"
+                                            onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visDim">Dimension</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="visFlow"
+                                            onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visFlow">Vandmængde (l/s)</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                            id="visTryktabLabel" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visTryktabLabel">Tryktab (Pa/m)</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                            id="visHastighedLabel" onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visHastighedLabel">Hastighed</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="visLaengde"
+                                            onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visLaengde">Længde</label>
+                                    </div>
+                                    <div class="vr"></div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="visKritisk"
+                                            onclick="updateDiagramStyles()">
+                                        <label class="form-check-label" for="visKritisk">Vis kritisk streng</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="diagram" class="flex-grow-1 position-relative">
+                            <div id="diagram-legend" class="p-2 bg-light border rounded"
+                                style="position:absolute; bottom:10px; right:10px; display:none; font-size: 0.8rem;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title" id="helpModalLabel">ℹ️ Hjælp & Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="text-center mb-4 pb-3 border-bottom">
+                        <h5 class="mb-1">NIRAS Brugsvandsberegner </h5>
+                        <p class="text-muted mb-1">Version 0.34 Beta</p>
+                        <p class="small text-muted mb-0">Beregning jf. DS 439:2024 & DS 452</p>
+                    </div>
+
+                    <ul class="nav nav-tabs mb-3" id="helpTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="help-legend-tab" data-bs-toggle="tab"
+                                data-bs-target="#help-legend" type="button">Signatur</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="help-workflow-tab" data-bs-toggle="tab"
+                                data-bs-target="#help-workflow" type="button">Workflow & Nyt</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="help-calc-tab" data-bs-toggle="tab" data-bs-target="#help-calc"
+                                type="button">Beregning</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="help-input-tab" data-bs-toggle="tab"
+                                data-bs-target="#help-input" type="button">Input & Isolering</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="helpTabContent">
+
+                        <div class="tab-pane fade show active" id="help-legend" role="tabpanel">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary border-bottom pb-2">Systemer & Rør</h6>
+                                    <ul class="list-group list-group-flush small">
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <span
+                                                style="width:20px; height:4px; background-color:#0d6efd; margin-right:10px;"></span>
+                                            <div><b>Koldt Vand (KV)</b><br><span class="text-muted">Forsyning fra
+                                                    Vandstik. Blå farve.</span></div>
+                                        </li>
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <span
+                                                style="width:20px; height:4px; background-color:#dc3545; margin-right:10px;"></span>
+                                            <div><b>Varmt Vand (VV)</b><br><span class="text-muted">Forsyning fra
+                                                    Beholder. Rød farve.</span></div>
+                                        </li>
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <span
+                                                style="width:20px; height:4px; border-top: 2px dashed #a71d2a; margin-right:10px;"></span>
+                                            <div><b>Cirkulation</b><br><span class="text-muted">Returløb. Stiplet
+                                                    mørkerød.</span></div>
+                                        </li>
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <span
+                                                style="width:20px; height:4px; background-color:#0dcaf0; margin-right:10px;"></span>
+                                            <div><b>Hydraulisk Link</b><br><span class="text-muted">Forbindelse fra
+                                                    KV-rør til Beholder. Cyan.</span></div>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary border-bottom pb-2">Komponenter</h6>
+                                    <ul class="list-group list-group-flush small">
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <div
+                                                style="width:16px; height:16px; background-color:#0d6efd; border:1px solid #000; margin-right:12px; margin-left:2px;">
+                                            </div>
+                                            <div><b>Vandstik</b><br><span class="text-muted">Startpunkt for Koldt
+                                                    Vand.</span></div>
+                                        </li>
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <svg width="20" height="20" viewBox="0 0 20 20" style="margin-right:10px;">
+                                                <rect x="4" y="2" width="12" height="16" rx="2" fill="#f8f9fa"
+                                                    stroke="#343a40" stroke-width="1.5"></rect>
+                                                <line x1="4" y1="6" x2="16" y2="6" stroke="#343a40" stroke-width="1">
+                                                </line>
+                                            </svg>
+                                            <div><b>Beholder</b><br><span class="text-muted">Startpunkt for Varmt
+                                                    Vand.</span></div>
+                                        </li>
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <div
+                                                style="width:12px; height:12px; background-color:#198754; border:1px solid #333; border-radius:50%; margin-right:14px; margin-left:4px;">
+                                            </div>
+                                            <div><b>Tapsted</b> (Unified)<br><span class="text-muted">Forbrugssted
+                                                    (Brus, Vask mv.).</span></div>
+                                        </li>
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <div
+                                                style="width:12px; height:12px; background-color:#6f42c1; border:1px solid #333; transform:rotate(45deg); margin-right:14px; margin-left:4px;">
+                                            </div>
+                                            <div><b>Cirkulationsventil</b><br><span class="text-muted">Strengregulering
+                                                    (STAD/Alpha).</span></div>
+                                        </li>
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <svg width="20" height="20" viewBox="-10 -10 20 20"
+                                                style="margin-right:10px;">
+                                                <circle r="8" fill="#fff" stroke="#000" stroke-width="1.5"></circle>
+                                                <path d="M -4,2 L 4,2 L 0,-5 Z" fill="#000"></path>
+                                            </svg>
+                                            <div><b>Trykforøger</b> (Booster)<br><span class="text-muted">Tilfører
+                                                    tryk.</span></div>
+                                        </li>
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <svg width="20" height="20" viewBox="-10 -10 20 20"
+                                                style="margin-right:10px;">
+                                                <path d="M -7,-5 L 7,-5 L 0,7 Z" fill="#ffcccc" stroke="#000"
+                                                    stroke-width="1"></path>
+                                            </svg>
+                                            <div><b>Reduktionsventil</b><br><span class="text-muted">Begrænser
+                                                    tryk.</span></div>
+                                        </li>
+
+                                        <li class="list-group-item d-flex align-items-center px-0">
+                                            <div
+                                                style="width:16px; height:16px; background-color:#FFFFFF; border:1px solid #000; margin-right:12px; margin-left:2px;">
+                                            </div>
+                                            <div><b>Måler</b><br><span class="text-muted">Beregner KVS for
+                                                    vandmåler.</span></div>
+                                        </li>
+
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="help-workflow" role="tabpanel">
+                            <div class="alert alert-info border-0">
+                                <h6 class="alert-heading">🚀 Nyhed: Koldt brugsvand + forbedret brugergrænseflade +
+                                    Unified tepsteder </h6>
+                                <p class="small mb-0">Et tapsted (f.eks. en bruser) eksisterer nu som én samlet enhed i
+                                    databasen, men kan vises og forbindes i både koldt- og varmtvandslisterne.</p>
+                            </div>
+
+                            <h6 class="text-dark mt-3">Sådan forbinder du et tapsted til begge systemer:</h6>
+                            <ol class="small list-group list-group-numbered mb-3">
+                                <li class="list-group-item">Opret tapstedet i den ene liste (f.eks. under <strong>Varmt
+                                        Vand</strong>).</li>
+                                <li class="list-group-item">Skift til <strong>Koldt Vand</strong> listen (eller naviger
+                                    i diagrammet).</li>
+                                <li class="list-group-item">Højreklik på det koldtvandsrør, der skal forsyne tapstedet.
+                                </li>
+                                <li class="list-group-item">Vælg <strong>"🔗 Tilslut eksisterende Tapsted"</strong> i
+                                    menuen.</li>
+                                <li class="list-group-item">Klik på det tapsted (i diagrammet eller listen), du vil
+                                    forbinde.</li>
+                            </ol>
+                            <p class="small text-muted"><em>Resultat: Tapstedet vises nu i begge lister ("Spejlet").
+                                    Ændrer du navn eller type det ene sted, opdateres det automatisk det andet
+                                    sted.</em></p>
+
+                            <hr>
+
+                            <h6 class="text-dark">🔗 Hydrauliske Link (Koldt vand KV til varmt vand VV)</h6>
+                            <p class="small">For at få en korrekt trykberegning af varmtvandet, skal systemet vide, hvor
+                                beholderen får sit vand fra.</p>
+                            <ul class="small">
+                                <li>Højreklik på <strong>Beholderen</strong> i diagrammet.</li>
+                                <li>Vælg <strong>"➡️ Tilslut Koldt Vand"</strong>.</li>
+                                <li>Klik på det koldtvandsrør (eller Vandstik), der forsyner beholderen.</li>
+                            </ul>
+                        </div>
+
+                        <div class="tab-pane fade" id="help-calc" role="tabpanel">
+                            <div class="accordion accordion-flush" id="calcAccordion">
+
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed py-2 fw-bold" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#helpCalcDesignMode">
+                                            ⚙️ Automatisk Dimensionering (Design Mode)
+                                        </button>
+                                    </h2>
+                                    <div id="helpCalcDesignMode" class="accordion-collapse collapse"
+                                        data-bs-parent="#calcAccordion">
+                                        <div class="accordion-body small bg-light">
+                                            <p>Når <b>"Design Mode"</b> er aktiveret, regner programmet automatisk de
+                                                mest optimale rørdimensioner ud for hvert rør. Du kan vælge mellem 4
+                                                forskellige principper for, hvordan programmet skal vælge dimensionen:
+                                            </p>
+                                            <ul class="mb-3">
+                                                <li class="mb-2"><b>Kombineret (Standard):</b> Finder den mest optimale
+                                                    balance. Programmet vælger den mindste rørdimension, der overholder
+                                                    <i>både</i> din valgte max-hastighed (f.eks. 1.0 m/s) og dit
+                                                    max-tryktab (f.eks. 500 Pa/m).
+                                                </li>
+                                                <li class="mb-2"><b>Optimer kun efter Tryktab:</b> Ignorerer hastigheden
+                                                    fuldstændigt og vælger udelukkende rørdimensioner ud fra, at
+                                                    tryktabet pr. meter ikke må overstige din valgte grænse.</li>
+                                                <li class="mb-2"><b>Optimer kun efter Hastighed:</b> Ignorerer tryktabet
+                                                    og fokuserer udelukkende på at holde vandhastigheden under dit
+                                                    valgte maksimum (vigtigt for at undgå støj og slid).</li>
+                                                <li><b>Mindste tryktab (med min. hastighed):</b> Sikrer at røret er
+                                                    stort nok til et lavt tryktab, men tvinger det til at være lille nok
+                                                    til, at vandet ikke står stille for at undgå biofilm i rørene, min.
+                                                    hastighed bør være over 1,0 m/s (DS 439).</li>
+                                            </ul>
+                                            <div class="alert alert-warning py-2 mb-0 border-0">
+                                                <strong>⚠️ Fare for biofilm ved overdimensionering:</strong><br>
+                                                Når røret er for stort i forhold til den mængde vand, der tappes, falder
+                                                vandhastigheden drastisk. Det giver langsomt flow, øget opholdstid i
+                                                røret og dermed perfekte betingelser for biofilm. Hold vandhastigheden
+                                                mellem 1,0 m/s og 2,0 m/s for optimal drift og hygiejne (DS 439). Benyt
+                                                hellere trykforøger en at holde for lav en vandhastighed.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed py-2 fw-bold" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#helpCalcBiofilm">
+                                            🦠 4 vigtige faktorer mod biofilm (Hygiejne)
+                                        </button>
+                                    </h2>
+                                    <div id="helpCalcBiofilm" class="accordion-collapse collapse"
+                                        data-bs-parent="#calcAccordion">
+                                        <div class="accordion-body small bg-light">
+                                            <p>Udover selve vandhastigheden er der tre andre helt afgørende faktorer for
+                                                at holde brugsvandet rent og forhindre dannelse af biofilm:</p>
+                                            <ul class="mb-0">
+                                                <li class="mb-2"><strong>Hastighed:</strong> Vandhastigheden skal
+                                                    være mellem 1,0 m/s og 2,0 m/s for optimal drift og hygiejne (DS
+                                                    439).
+                                                </li>
+                                                <li class="mb-2"><strong>Temperatur:</strong> Koldt vand skal holdes
+                                                    under 20 °C, og varmt vand skal være minimum 50 °C (gerne 55 °C) ved
+                                                    alle tapsteder. Mellem 20 og 50 grader stortrives bakterier.</li>
+                                                <li class="mb-2"><strong>Ingen døde ender:</strong> Undgå "blinde"
+                                                    rørstykker, hvor vandet står stille (stagnation). Alt vand i
+                                                    installationen skal ideelt set udskiftes jævnligt.</li>
+                                                <li><strong>Korrekt isolering:</strong> Rørene skal isoleres i henhold
+                                                    til DS 452, så de varme rør ikke varmer de kolde rør op, når de
+                                                    ligger tæt på hinanden i en skakt.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed py-2 fw-bold" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#helpCalcBoost">
+                                            ⚡ Trykstyring (Booster & Reduktion)
+                                        </button>
+                                    </h2>
+                                    <div id="helpCalcBoost" class="accordion-collapse collapse"
+                                        data-bs-parent="#calcAccordion">
+                                        <div class="accordion-body small bg-light">
+                                            <p>Du kan nu indsætte aktive komponenter direkte på rørene:</p>
+                                            <ul>
+                                                <li><b>Booster:</b> Indtast et <u>positivt</u> tal (f.eks. 50 kPa).
+                                                    Dette trækkes fra tryktabet (dvs. lægges til trykket).</li>
+                                                <li><b>Reduktionsventil:</b> Indtast et <u>negativt</u> tal (f.eks. -30
+                                                    kPa). Dette lægges til tryktabet.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed py-2 fw-bold" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#helpCalcCirc">
+                                            🔄 Cirkulation (Iterativ)
+                                        </button>
+                                    </h2>
+                                    <div id="helpCalcCirc" class="accordion-collapse collapse"
+                                        data-bs-parent="#calcAccordion">
+                                        <div class="accordion-body small bg-light">
+                                            <p>Systemet balancerer termisk ved at øge flowet i strenge med højt
+                                                varmetab, indtil returtemperaturen er overholdt ( 50°C ).
+                                                Rørdimensionerne opgraderes automatisk, hvis hastighedskravet
+                                                overskrides.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+
+                        <div class="tab-pane fade" id="help-input" role="tabpanel">
+                            <h6 class="text-primary">Isolering (DS 452)</h6>
+                            <p class="small">Isoleringstykkelsen beregnes automatisk ("Auto") baseret på rørets type og
+                                placering:</p>
+                            <table class="table table-sm table-bordered small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Placering</th>
+                                        <th>Auto Klasse</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Koldt Vand</td>
+                                        <td>Indendørs (Opvarmet)</td>
+                                        <td>Kl. 2 (Kondens)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Koldt Vand</td>
+                                        <td>Udvendig / Uopvarmet</td>
+                                        <td>Kl. 6 (Frost)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Varmt Vand</td>
+                                        <td>Indendørs (Opvarmet)</td>
+                                        <td>Kl. 4 (Standard)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Varmt Vand</td>
+                                        <td>Udvendig / Uopvarmet</td>
+                                        <td>Kl. 6 (Max)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="small text-muted"><em>Bemærk: Koblingsledninger til varmt vand sættes til Klasse 4
+                                    som sikkerhed. Hvis røret er synligt i samme rum som tapstedet, kan du manuelt ændre
+                                    det til <b>Kl. 0</b>.</em></p>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light justify-content-between">
+                    <a href="mailto:cwa@niras.dk" class="btn btn-outline-secondary btn-sm">
+                        ✉️ Send Feedback
+                    </a>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Luk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div class="modal fade" id="editNodeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h6 class="modal-title">Rediger Data</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editNodeForm">
+                        <div class="mb-3 row">
+                            <label class="col-sm-4 col-form-label col-form-label-sm fw-bold">ID / Type</label>
+                            <div class="col-sm-8">
+                                <input type="text" class="form-control form-control-sm bg-light" id="editNodeId"
+                                    readonly>
+                                <input type="hidden" id="editNodeType">
+                            </div>
+                        </div>
+
+                        <div id="editNodeDynamicContent"></div>
+                    </form>
+                </div>
+                <div class="modal-footer py-1">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuller</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveEditModal()">Gem
+                        Ændringer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <template id="kvStrengTemplate">
+        <div class="card mb-3 streng-card kv-card" data-type="streng-card-kv" style="border-left: 4px solid #0d6efd;">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><span class="id-text"></span><input type="text" name="kv-streng-navn"
+                        class="name-input d-none name-text" placeholder="Navn"></h6>
+                <button class="btn btn-sm btn-outline-danger" aria-label="Fjern streng"
+                    onclick="removeElement(this)">&times; Fjern</button>
+            </div>
+            <div class="card-body">
+                <h6>Rør (Koldt)</h6>
+                <table class="table table-sm table-borderless mb-0" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">ID/Navn</th>
+                            <th style="width: 15%;">Forælder</th>
+                            <th style="width: 12%;">Mat.</th>
+                            <th style="width: 13%;">Plac.</th>
+                            <th style="width: 12%;">Isol. Klasse</th>
+                            <th style="width: 10%;">Dim [mm]</th>
+                            <th style="width: 10%;">Længde [m]</th>
+                            <th style="width: 7%;">Zeta [ζ]</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="ror-container"></tbody>
+                </table>
+                <button class="btn btn-sm btn-outline-secondary mt-1" aria-label="Tilføj rør"
+                    onclick="addRorSektion(this, 'ror_kv')">+ Rør</button>
+
+                <hr>
+                <h6 class="mt-3">Tapsteder</h6>
+                <table class="table table-sm table-borderless mb-0" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">ID/Navn</th>
+                            <th style="width: 18%;">Forælder</th>
+                            <th style="width: 32%;">Type</th>
+                            <th style="width: 10%;">qf [l/s]</th>
+                            <th style="width: 10%;">Kote [m]</th>
+                            <th style="width: 5%;">Syst.</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="tapsted-container"></tbody>
+                </table>
+                <button class="btn btn-sm btn-outline-secondary mt-1" aria-label="Tilføj tapsted"
+                    onclick="addTapsted(this)">+ Tapsted</button>
+            </div>
+        </div>
+    </template>
+
+    <template id="vvStrengTemplate">
+        <div class="card mb-3 streng-card" data-type="streng-card">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><span class="id-text"></span><input type="text" name="vv-streng-navn"
+                        class="name-input d-none name-text" placeholder="Navn" title="Giv strengen et unikt navn"></h6>
+                <button class="btn btn-sm btn-outline-danger" aria-label="Fjern streng" onclick="removeElement(this)"
+                    title="Fjern hele strengen">&times; Fjern</button>
+            </div>
+            <div class="card-body">
+
+                <h6>Rør</h6>
+                <table class="table table-sm table-borderless mb-0" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">ID/Navn</th>
+                            <th style="width: 15%;">Forælder</th>
+                            <th style="width: 12%;">Mat.</th>
+                            <th style="width: 13%;">Plac.</th>
+                            <th style="width: 12%;">Isol. Klasse</th>
+                            <th style="width: 10%;">Dim [mm]</th>
+                            <th style="width: 10%;">Længde [m]</th>
+                            <th style="width: 7%;">Zeta [ζ]</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="ror-container">
+                    </tbody>
+                </table>
+                <button class="btn btn-sm btn-outline-secondary mt-1" aria-label="Tilføj rør"
+                    onclick="addRorSektion(this, 'ror_vv')">+ Varmtvandsrør</button>
+
+                <hr>
+
+                <h6 class="mt-3">Tapsteder</h6>
+                <table class="table table-sm table-borderless mb-0" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">ID/Navn</th>
+                            <th style="width: 18%;">Forælder</th>
+                            <th style="width: 32%;">Type</th>
+                            <th style="width: 10%;">qf [l/s]</th>
+                            <th style="width: 10%;">Kote [m]</th>
+                            <th style="width: 5%;">Syst.</th>
+                            <th style="width: 5%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="tapsted-container">
+                    </tbody>
+                </table>
+                <button class="btn btn-sm btn-outline-secondary mt-1" aria-label="Tilføj tapsted"
+                    onclick="addTapsted(this)">+ Tapsted</button>
+
+                <hr>
+
+                <h6>Cirkulationskobling</h6>
+                <div class="row gx-2">
+                    <div class="col"><label class="form-label-sm">Startpunkt<select
+                                class="form-select form-select-sm circ-start" name="circ-start"
+                                title="Startpunkt for cirkulation (ofte det fjerneste rør i strengen)"></select></label>
+                    </div>
+                    <div class="col"><label class="form-label-sm">Tilsluttes cirkulationsrør<select
+                                class="form-select form-select-sm circ-end" name="circ-end"
+                                title="Tilslutningspunkt for cirkulation (skal være et retur-rør, en ventil eller Beholder)">
+                                <option value="">Ingen</option>
+                            </select></label></div>
+                    <div class="col"><label class="form-label-sm">Zeta (kobling)<div class="input-group"><input
+                                    type="number" min="0" name="circ-zeta"
+                                    class="form-control form-control-sm circ-zeta" value="0"
+                                    title="Eventuel enkeltmodstand (zeta) i selve cirkulationskoblingen"><span
+                                    class="input-group-text">ζ</span></div></label></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <datalist id="insulationClassOptions">
+        <option value="Auto"></option>
+        <option value="Kl. 0"></option>
+        <option value="Kl. 1"></option>
+        <option value="Kl. 2"></option>
+        <option value="Kl. 3"></option>
+        <option value="Kl. 4"></option>
+        <option value="Kl. 5"></option>
+        <option value="Kl. 6"></option>
+    </datalist>
+
+    <template id="vvcirkulationTRTemplate">
+        <tr data-type="cirkulation_vv">
+            <td>
+                <span class="input-group input-group-sm">
+                    <span class="input-group-text id-text"></span>
+                    <input type="text" name="cirkulation-navn" class="form-control name-input d-none name-text"
+                        placeholder="Navn" title="Giv retur-røret et unikt navn">
+                </span>
+            </td>
+            <td><select class="form-select form-select-sm parent"
+                    title="Vælg hvilket retur-rør, ventil eller Beholder dette rør starter fra"></select></td>
+            <td><select class="form-select form-select-sm material" title="Vælg rørmateriale">
+                    <option value="Rustfri Press 316L">Rustfri Press 316L</option>
+                    <option value="Rustfri Svejse 316L">Rustfri Svejse 316L</option>
+                    <option value="Pex">Pex</option>
+                    <option value="Alupex">Alupex</option>
+                    <option value="PE100">PE100</option>
+                    <option value="Geberit Mepla">Geberit Mepla</option>
+                    <option value="Kobber">Kobber</option>
+                </select></td>
+            <td>
+                <select class="form-select form-select-sm location" title="Placering (ift. varmetabsberegning)">
+                    <option value="heated" selected>Opvarmet rum</option>
+                    <option value="unheated">Uopvarmet rum</option>
+                    <option value="outside">Udendørs</option>
+                </select>
+            </td>
+            <td>
+                <input type="text" name="cirkulation-isolering" class="form-control form-control-sm insulation-class"
+                    value="Auto" list="insulationClassOptions"
+                    title="Vælg isoleringsklasse (Auto baseres på placering og DS 452, Tabel 6.4)">
+            </td>
+            <td>
+                <input type="text" name="cirkulation-dim" class="form-control form-control-sm dim-input dim" value="16"
+                    title="Nominel diameter (mm)" list="">
+                <datalist id=""></datalist>
+            </td>
+            <td><input type="number" min="0" name="cirkulation-laengde" class="form-control form-control-sm len"
+                    value="10" title="Længde (m)"></td>
+            <td><input type="number" min="0" name="cirkulation-zeta" class="form-control form-control-sm fittings"
+                    value="0" title="Sum af enkeltmodstande (zeta)"></td>
+            <td><button class="btn btn-sm btn-outline-danger" aria-label="Fjern retur-rør"
+                    onclick="removeElement(this)">&times;</button></td>
+        </tr>
+    </template>
+
+    <template id="customTapstedTemplate">
+        <div class="input-group input-group-sm mb-2">
+            <span class="input-group-text" data-key=""></span>
+            <input type="number" min="0" step="0.01" name="custom-tap-qf" class="form-control qf" value=""
+                title="Normvandstrøm (qf) i l/s">
+            <div class="input-group-text"><input type="checkbox" name="custom-tap-apartment"
+                    class="form-check-input is-apartment" title="Lejlighed? (Vigtigt for Beholder Metode A)"></div>
+            <button class="btn btn-sm btn-outline-danger" onclick="removeCustomTapsted(this)"
+                title="Fjern brugerdefineret tapsted">&times;</button>
+        </div>
+    </template>
+
+    <template id="valveTRTemplate">
+        <tr data-type="valve">
+            <td>
+                <span class="input-group input-group-sm">
+                    <span class="input-group-text">
+                        <svg width="14" height="14" fill="currentColor" class="bi bi-diamond-fill" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd"
+                                d="M6.175.435a.636.636 0 0 1 .634-.14L8 1.442l1.191-.987a.636.636 0 0 1 .634.141l4.695 3.886a.636.636 0 0 1 .14.634l-.987 1.191 1.442.825a.636.636 0 0 1 .14.634l-3.886 4.695a.636.636 0 0 1-.634.14l-1.191-.987-1.191.987a.636.636 0 0 1-.634-.14l-4.695-3.886a.636.636 0 0 1-.14-.634l.987-1.191-1.442-.825a.636.636 0 0 1-.14-.634L6.175.435z" />
+                        </svg>
+                        <span class="id-text ms-2"></span>
+                    </span>
+                    <input type="text" name="ventil-navn" class="form-control name-input d-none name-text"
+                        placeholder="Navn" title="Giv ventilen et unikt navn">
+                </span>
+            </td>
+            <td><select class="form-select form-select-sm parent" aria-label="Forælder node"
+                    title="Vælg hvilket retur-rør, ventil eller Beholder denne ventil starter fra"></select></td>
+            <td>
+                <select class="form-select form-select-sm valve-type-select" title="Vælg ventiltype"></select>
+            </td>
+            <td><span class="form-control-plaintext form-control-sm ms-2">-</span></td>
+            <td><span class="form-control-plaintext form-control-sm ms-2">-</span></td>
+            <td><span class="form-control-plaintext form-control-sm ms-2">-</span></td>
+            <td><span class="form-control-plaintext form-control-sm ms-2">-</span></td>
+            <td><span class="form-control-plaintext form-control-sm ms-2">-</span></td>
+            <td><button class="btn btn-sm btn-outline-danger" aria-label="Fjern element"
+                    onclick="removeElement(this)">&times;</button></td>
+        </tr>
+    </template>
+    <template id="componentTRTemplate">
+        <tr data-type="">
+            <td>
+                <span class="input-group input-group-sm">
+                    <span class="input-group-text">
+                        <span class="icon-placeholder"></span>
+                        <span class="id-text ms-2"></span>
+                    </span>
+                    <input type="text" name="komponent-navn" class="form-control name-input d-none name-text"
+                        placeholder="Navn" title="Navn">
+                </span>
+            </td>
+            <td><select class="form-select form-select-sm parent" title="Forælder"></select></td>
+            <td colspan="2">
+                <input type="text" class="form-control form-control-sm component-label" readonly
+                    style="background:transparent; border:none; font-weight:bold;">
+            </td>
+            <td colspan="2">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">ΔP</span>
+                    <input type="number" step="1" name="komponent-dp" class="form-control pressure-change" value="0"
+                        title="Trykændring i kPa (Positiv = Trykforøger, Negativ = Reduktionsventil)">
+                    <span class="input-group-text">kPa</span>
+                </div>
+            </td>
+            <td colspan="2"></td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="removeElement(this)"
+                    title="Fjern">&times;</button></td>
+        </tr>
+    </template>
+    <template id="meterTRTemplate">
+        <tr data-type="water_meter">
+            <td>
+                <span class="input-group input-group-sm">
+                    <span class="input-group-text">
+                        <span class="icon-placeholder">💧</span>
+                        <span class="id-text ms-2"></span>
+                    </span>
+                    <input type="text" name="maaler-navn" class="form-control name-input d-none name-text"
+                        placeholder="Navn" title="Navn">
+                </span>
+            </td>
+            <td><select class="form-select form-select-sm parent" title="Forælder"></select></td>
+            <td colspan="2">
+                <select class="form-select form-select-sm meter-type-select" title="Vælg Målerstørrelse">
+                </select>
+            </td>
+            <td colspan="2">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">Δp</span>
+                    <input type="text" class="form-control form-control-sm meter-dp-display" readonly value="-"
+                        title="Beregnet tryktab ved dimensionerende flow">
+                    <span class="input-group-text">Pa</span>
+                </div>
+            </td>
+            <td colspan="2">
+                <small class="text-muted meter-info-display">-</small>
+            </td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="removeElement(this)"
+                    title="Fjern">&times;</button></td>
+        </tr>
+    </template>
+
+    <script type="module" src="/src/main.js"></script>
+    <script>
+        // PWA Service Worker Registrering
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker registreret med scope:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker registrering fejlede:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>

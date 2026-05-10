@@ -1,0 +1,104 @@
+DOKUMENTATION FOR BRUGSVANDSTOOL V2
+==================================
+Dette dokument indeholder en komplet oversigt over alle programfiler og funktioner i BrugsvandTool v2, herunder deres formål, parametre og virkemåde.
+
+PROGRAMARKITEKTUR OG MODULER
+============================
+BrugsvandTool v2 er opbygget som en moderne, modulær webapplikation ved brug af Vanilla JS, HTML5 og CSS3 (bundlet via Vite). Programmet foretager hydrauliske beregninger af brugsvandsnetværk (varmt vand BV, koldt vand BK, cirkulationsvand BC) i overensstemmelse med de nyeste danske standarder: DS 439:2024 (vandinstallationer) og DS 452 (rørisolering).
+
+Oversigt over kildefiler (src/):
+1. main.js - Applikationens indgangspunkt (bootstrapping, opsætning af globale event-lyttere og GUI-initialisering).
+2. data/state.js - Central datastruktur (state), der holder styr på hele programmets tilstand.
+3. config/constants.js - Tekniske konstanter og specifikationer (rørmaterialer, ruheder, ventil- og målerdata, standardisoleringsklasser).
+4. physics/properties.js - Fysiske konstanter og beregningsformler for vands egenskaber (densitet, viskositet, varmekapacitet).
+5. physics/calculations.js - Videnskabelige formler for tryktabsberegning (Darcy-Weisbach og Colebrook-White via Newton-Raphson iteration).
+6. model/components.js - Hjælpefunktioner til at udtrække data fra DOM'en, beregne tryktab over vandmålere samt rørisoleringstykkelser.
+7. model/network.js - Reconciliering af den flade fysikmodel med D3 force simulation samt automatisk sporing af rørstrenge og cirkulationsloops.
+8. model/solver.js - Den hydrauliske solver (tryk- og flowberegninger i henhold til DS 439:2024).
+9. ui/dom.js - DOM-manipulation (tilføjelse/fjernelse af strenge, rør, ventiler, opdatering af dropdown-menuer).
+10. ui/events.js - Håndtering af diagram-interaktioner (drag-and-drop af noder, genvejstaster, højreklik-kontekstmenuer).
+11. ui/diagram.js - Grafisk rendering af P&ID-diagrammet ved brug af D3.js.
+12. utils/export.js - Eksport og import af JSON-projekter, autosave samt detaljerede Excel/JSON-resultatrapporter.
+
+
+KOMPLET LISTE OVER FUNKTIONER
+=============================
+
+1. src/main.js
+--------------
+Ingen direkte eksport, men initialiserer:
+- DOMContentLoaded lytter: Bootstrapper GUI og indlæser seneste autosave.
+- Globale formularlyttere: Lytter efter konfigurationsændringer og udløser recalculations.
+
+2. src/data/state.js
+--------------------
+- setProjektErÆndret(value): Sætter det globale flag 'projektErÆndret', som indikerer, at der er ugemte ændringer.
+
+3. src/physics/properties.js
+----------------------------
+- getWaterDensity(t): Beregner vandets densitet (rho) [kg/m³] ved temperatur [°C] via Tanaka's formel.
+- getWaterViscosity(t): Beregner vandets dynamiske viskositet (mu) [Pa·s] ved temperatur [°C] via Vogel-Fulcher-Tammann formlen.
+- getWaterSpecificHeat(t): Beregner vandets specifikke varmekapacitet (cp) [J/(kg·K)] som funktion af temperatur [°C].
+- getHeatCapacityFactor(t): Beregner (rho * cp) [J/(m³·K)] for en given temperatur.
+
+4. src/physics/calculations.js
+------------------------------
+- getDP(flow_ls, d_inner, roughness, L, zeta, fittings_pct, temp): Hovedfunktion til tryktabsberegning via Darcy-Weisbach. Finder lambda (friktionsfaktor) turbulent via Colebrook-White og løser den iterativt på 6+ decimalers nøjagtighed vha. Newton-Raphson iteration.
+
+5. src/model/components.js
+--------------------------
+- extractComponentData(el): Udtager alle datafelter (længde, fittings, kote, ventiltype, isoleringsklasse) fra en given række i tabellen. Håndterer kontekst for koldt vand (parent_kv) og varmt vand (parent_vv).
+- calculateMeterPressureDrop(node): Beregner tryktab over vandmåleren ud fra aktuelt flow (qd) og kv-værdi. Finder automatisk den mindste egnede måler under 'Auto'.
+- getInsulationClassUl(klasse): Returnerer konstanter fra DS 452 (Tabel 5.1) for den valgte isoleringsklasse (1-6).
+- findNextStandardThickness(calculated_mm): Runder beregnet isoleringstykkelse op to næste standard handelstykkelse.
+- getDisplayName(id): Returnerer det brugerdefinerede navn for en node, hvis aktiveret, ellers dens ID.
+
+6. src/model/network.js
+-----------------------
+- buildModel(config): Bygger hele beregningsmodellen ud fra DOM-tabellerne. Samler 'Unified Tapsteder' til én node forbundet til både koldt- og varmtvandsnetværket.
+- syncModelToState(model): Synkroniserer beregningsmodellen med D3.js grafstrukturen (state.nodes, state.links) uden at ødelægge D3's interne referencer og koordinater. Sporer automatisk upstream forbindelser for at identificere rørtyper (KV, VV, Retur) og opretter automatisk rørforbindelser mellem Vandstik og Beholder samt cirkulationsloops.
+
+7. src/model/solver.js
+----------------------
+- calculateAbsolutePressures(model, config): Den primære beregningsmotor. Foretager:
+  1. Sporing af stier og beregning af spidsbelastningsflow (qd) ud fra normflow (qf) i henhold til DS 439:2024.
+  2. Dimensionering af alle rør (hvis Auto-Dim er aktiv) baseret på hastigheds- og tryktabsgrænser.
+  3. Beregning af tryktab (Darcy-Weisbach) og statisk trykændring (højde/kote).
+  4. Balancering af cirkulationsnetværket og valg af indreguleringsventiler (f.eks. Frese ventiler).
+  5. Beregning af varmetab og isoleringstykkelser iht. DS 452.
+
+8. src/ui/dom.js
+----------------
+- addStreng_vv(): Tilføjer en ny varmtvandsstreng.
+- addStreng_kv(): Tilføjer en ny koldtvandsstreng.
+- addRorSektion(btn, type): Tilføjer et rør (ror_vv / ror_kv) til en streng.
+- addTapsted(btn): Tilføjer et nyt tapsted til en streng og forbinder det automatisk til det seneste rør.
+- addCirkulationRor(): Tilføjer et returrør i cirkulationslisten.
+- createRowHTML(id, type): Genererer HTML-struktur for en række i tabelvisningen (rør, ventiler, vandmålere, tapsteder).
+- updateAllSelects(): Opdaterer alle dropdown-menuer for forældre, cirkulationsstart og cirkulationsslut, og udfører automatisk oprydning og 'selv-heling' af tapstedforbindelser.
+- toggleDisplayNames(useNames): Skifter visning i tabellerne og diagrammet mellem rå ID'er (f.eks. S1-T2) og brugerdefinerede navne.
+- toggleAutoDim(isAuto): Tænder/slukker for automatisk rørdimensionering i GUI'en.
+- updateTapstedOptions(): Genopbygger dropdown-listen over tapstedstyper (inkluderer brugerdefinerede).
+
+9. src/ui/events.js
+-------------------
+- setupEvents(): Registrerer alle mus- og tastatur-eventlyttere på diagrammet.
+- dragstarted(event, d) / dragged(event, d) / dragended(event, d): Styrer D3 drag-and-drop fysikinteraktion.
+- showContextMenu(x, y, d): Viser den skræddersyede højreklik-kontekstmenu for en given node i diagrammet (tilføj komponenter, omdøb, slet, reparent, mv.).
+
+10. src/ui/diagram.js
+---------------------
+- initDiagram(): Initialiserer D3-scenen, SVG elementerne, pil-markører og force-simuleringen.
+- updateDiagram(calculatedModel): Tegner noder og links baseret på beregningsresultaterne. Farvelægger rør og komponenter dynamisk:
+  - Mørkeblå / Lyseblå stiplede: Koldtvandsledninger (KV / BK).
+  - Røde / Orange: Varmtvandsledninger (VV / BV).
+  - Lilla stiplede: Cirkulationsledninger (BC).
+- zoomToFit(): Zoomer og panorerer diagrammet, så hele netværket er synligt.
+
+11. src/utils/export.js
+-----------------------
+- exportProject(): Downloader hele projektet som en formateret JSON-fil med tidsstempel.
+- importProject(file): Læser en JSON-fil og genopbygger hele DOM-strukturen samt diagrammet.
+- autoSaveProject(): Gemmer automatisk projektet til browserens LocalStorage.
+- renumberAndSortProject(): Omdøber alle strenge og komponenter automatisk til logiske, fortløbende numre (S1, S2, R1, T1...) baseret på strømningsretningen, og bevarer alle forbindelser intakte.
+- exportDetailedResults(): Genererer en detaljeret JSON-rapport med samtlige beregningsresultater for rør, fittings, isoleringer, tryktab, hastigheder og cirkulationsstrenge, klar til videre bearbejdning.

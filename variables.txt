@@ -1,0 +1,125 @@
+VARIABELOVERVIGT FOR BRUGSVANDSTOOL V2
+=====================================
+Dette dokument indeholder en detaljeret oversigt over alle vigtige variable, konfigurationsegenskaber og datastrukturer i programmet, samt hvad de bruges til.
+
+1. DEN GLOBALE TILSTAND (src/data/state.js)
+==========================================
+Objektet `state` holder styr på hele programmets kørselstilstand:
+
+- state.sC [Number]:
+  Global tæller for varmtvandsstrenge (VV-strenge). Bruges til at tildele unikke standard-ID'er som S1, S2, etc.
+
+- state.sC_kv [Number]:
+  Global tæller for koldtvandsstrenge (KV-strenge). Bruges til at tildele unikke standard-ID'er som K1, K2, etc.
+
+- state.rC [Number]:
+  Global tæller for retur-/cirkulationsrør. Bruges til at tildele unikke ID'er som Retur1, Retur2, etc.
+
+- state.tC [Number]:
+  Global tæller for tapsteder. Bruges til at generere unikke numre som S1-T1, S1-T2, etc.
+
+- state.nodes [Array of Objects]:
+  Den rå liste over aktive noder til D3.js force-diagrammet. Hvert objekt indeholder bl.a.:
+  * id: Unikt ID (f.eks. 'S1-R1')
+  * type: Elementtype (f.eks. 'ror_vv', 'tapsted', 'valve')
+  * x, y: Aktuelle 2D-koordinater i diagrammet
+  * vx, vy: Aktuel hastighedsvektor (fysikmotor)
+  * fx, fy: Fastlåste koordinater (sættes når brugeren trækker i en node)
+
+- state.links [Array of Objects]:
+  Den rå liste over rørforbindelser (links) til D3.js force-diagrammet. Hvert link indeholder:
+  * id: Unikt link-ID (f.eks. 'S1-R1-S1-T1')
+  * source: Kilde-nodens ID eller objekt
+  * target: Mål-nodens ID eller objekt
+  * type: Forbindelsestype (f.eks. 'ror_kv', 'cirkulation_vv', 'kv_feed', 'loop')
+
+- state.sim [Object]:
+  Reference til D3.js forceSimulation-instansen. Styrer fysikken, tiltrækningen og frastødningen mellem ikonerne.
+
+- state.reparentingNode [Object / null]:
+  Midlertidig lagring af en node, som brugeren p.t. er ved at ændre forælder (tilslutning) for via diagrammet.
+
+- state.connectingNodeInfo [Object / null]:
+  Information om den node, der er valgt som startpunkt for oprettelse af et nyt cirkulationsloop.
+
+- state.selectedNodes [Set of Strings]:
+  Et ES6 Set, der indeholder ID'er på de noder, som brugeren har markeret i diagrammet.
+
+- state.lastModel [Object / null]:
+  Reference til den senest beregnede hydrauliske model. Indeholder det fulde løste ligningssystem (alle tryk, flows, dimensioner og varmetab).
+
+- state.lastConfig [Object / null]:
+  Gemmer den senest anvendte globale konfigurations-tilstand (pln, min_tap_tryk, materialer, etc.).
+
+- state.useNames [Boolean]:
+  Afgør om tabellerne og diagrammet skal vise de brugervenlige navne (f.eks. "Håndvask") i stedet for tekniske ID'er (f.eks. "S1-T2").
+
+- state.customTapsteder [Object]:
+  Ordbog (dictionary) over brugeroprettede tapstedstyper med deres respektive normflows (f.eks. `{"MinSpecialBruser": {qf_hot: 0.2, qf_cold: 0.2, isApartment: false}}`).
+
+- state.names [Map of Strings]:
+  Et ES6 Map, der kobler unikke node-ID'er sammen med brugerdefinerede navne (f.eks. `'S1-T1' => 'Håndvask Bad'`).
+
+- state.clipboard [Object / null]:
+  Datastruktur til kopiering og indsættelse af hele rørstrenge eller komponenter. Bevarer dimensioner og indstillinger under flytning.
+
+- state.movingBranch [Object / null]:
+  Datastruktur til at styre flytning af rørgrene i diagrammet.
+
+- state.isAutoSavingEnabled [Boolean]:
+  Afgør om programmet automatisk skal gemme fremskridt i browserens LocalStorage hvert 10. sekund.
+
+- projektErÆndret [Boolean]:
+  Global flag, der indikerer om brugeren har foretaget ændringer, som endnu ikke er eksporteret eller autosaved.
+
+
+2. GLOBAL KONFIGURATION (Fra GUI Formular)
+==========================================
+Disse variable indlæses direkte fra HTML-inputfelterne og indgår i `config`-objektet under beregninger:
+
+- projectName [String]: Navnet på projektet (bruges til filnavne ved eksport).
+- pln [Number]: Forsyningstrykket ved vandstikket i Pascal [Pa] (f.eks. 350.000 Pa / 3.5 bar).
+- min_tap_tryk [Number]: Det krævede mindstetryk ved det mest kritiske tapsted iht. DS 439 [Pa] (f.eks. 100.000 Pa / 1.0 bar).
+- max_velocity [Number]: Maksimal tilladt vandhastighed i fordelingsrør [m/s] (typisk 2.0 m/s iht. DS 439).
+- max_velocity_connection [Number]: Maksimal tilladt vandhastighed i koblingsrør [m/s] (typisk 3.0 m/s).
+- temp_vv [Number]: Varmtvandstemperatur ud af beholderen [°C] (skal være mindst 55°C iht. DS 439 for at undgå Legionella).
+- temp_retur [Number]: Mindste tilladte returtemperatur på cirkulationen [°C] (skal være mindst 50°C iht. DS 439 / DS 452).
+- ambient_heated [Number]: Omgivelsestemperatur i opvarmede rum [°C] (typisk 20°C).
+- ambient_unheated [Number]: Omgivelsestemperatur i uopvarmede rum (f.eks. kælder) [°C] (typisk 10°C).
+- ambient_outside [Number]: Omgivelsestemperatur for udendørs rørføring [°C] (typisk 0°C eller -12°C).
+- isAuto [Boolean]: Hvis sand (true), dimensionerer programmet automatisk rørstørrelserne (Auto-Dim). Hvis falsk, bruges de valgte manuelle dimensioner.
+
+
+3. BEREGNINGSDATA PÅ NODER (Under kørsel i src/model/solver.js)
+================================================================
+Når den hydrauliske solver kører, beriges nodestrukturen med følgende vigtige variable:
+
+- node.qd [Number]:
+  Det beregnede spidsbelastningsflow gennem noden i liter pr. sekund [l/s] (beregnet ud fra DS 439:2024 sum-formler for normflows).
+
+- node.qf [Number]:
+  Det samlede normflow for tapstedet [l/s].
+
+- node.circ_flow [Number]:
+  Det beregnede cirkulationsflow gennem returrøret i liter pr. sekund [l/s] (nødvendigt for at holde temperaturen over 50°C).
+
+- node.q_tab [Number]:
+  Rørets varmetab til omgivelserne i Watt [W] (beregnet ud fra temperaturforskel, isoleringstykkelse og materialekonstanter iht. DS 452).
+
+- node.u_value_per_meter [Number]:
+  Rørets lineære varmetabskoefficient (U-værdi) i W/(m·K).
+
+- node.insulationThickness [Number]:
+  Den nødvendige eller valgte isoleringstykkelse i millimeter [mm] (beregnet automatisk iht. DS 452 klasser 1-6).
+
+- node.nom_dim [Number]:
+  Rørets nominelle udvendige diameter i millimeter [mm] (f.eks. 15, 18, 22, 28).
+
+- node.p_abs [Number]:
+  Det absolutte beregnede tryk i noden i Pascal [Pa] under fuld spidsbelastning.
+
+- node.dp_tap [Number]:
+  Det samlede tryktab over røret / komponenten under tapning i Pascal [Pa] (rørmodstand + enkeltmodstande/fittings).
+
+- node.dp_circ [Number]:
+  Tryktab over røret / komponenten under ren cirkulationstilstand i Pascal [Pa].

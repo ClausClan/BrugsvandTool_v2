@@ -1,0 +1,177 @@
+        /* Sæt grund-størrelsen ned. Bootstrap skalerer alt (knapper, inputs, padding) efter denne. */
+        html {
+            /* Standard er normalt 16px. */
+            /* 12px svarer til 75% zoom */
+            /* 11px svarer til ca. 68% zoom */
+            font-size: 11px; 
+        }
+
+        /* Sørg for at diagrammet stadig har en læsbar tekststørrelse, hvis det bliver for småt */
+        #diagram text {
+            font-size: 12px; /* Tving diagram-tekst til at være lidt større hvis nødvendigt */
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .main-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .main-row {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .scrollable-column {
+            height: 100%;
+            overflow-y: auto;
+        }
+        .highlighted-row {
+            background-color: #ffeb3b !important; /* Kraftig gul */
+            color: #000 !important; /* Sort tekst for kontrast */
+            outline: 3px solid #ffc107; /* Tydelig orange/guld kant */
+            font-weight: bold;
+            transition: all 0.5s ease;
+            z-index: 100; /* Sikrer at den ligger 'ovenpå' hvis der er skygger */
+            position: relative; /* Nødvendig for at z-index og outline virker optimalt */
+        }
+
+        /* Gør #diagram fleksibelt, så det aldrig presser ud over kanten */
+        #diagram {
+            flex-grow: 1;        /* Tag al den plads der er tilovers */
+            height: 0;           /* VIGTIGT: Dette tillader flexbox at styre højden */
+            width: 100%;
+            position: relative;
+            cursor: grab;
+        }
+
+        /* SVG'en skal bare fylde #diagram containeren helt ud */
+        #diagram svg {
+            width: 100%;
+            height: 100%;
+            display: block;      /* Fjerner evt. lille margin i bunden */
+        }
+
+        .card-header h5 { margin-bottom: 0; }
+        .accordion-button:not(.collapsed) { background-color: #eef7ff; }
+        .streng-card { border-left: 4px solid #dc3545; }
+        /* Standard: Varmt Fremløb (Rød, Solid) */
+        .link-fremløb { stroke: #dc3545; stroke-width: 1.5px; }
+        /* Standard: Varm Cirkulation (Rød, Stiplet) */
+        .link-cirkulation_vv { stroke: #a71d2a; stroke-width: 1.5px; stroke-dasharray: 6, 4; }
+        /* Forsyningslinje fra KV til Beholder (Cyan) */
+        .link-kv_feed { stroke: #0dcaf0; stroke-width: 2px; stroke-dasharray: 4, 2; }
+        .node circle { stroke: #333; stroke-width: 0.5px; cursor: move; }
+        .node.reparenting circle { stroke: #ffc107; stroke-width: 3px; }
+        .dim-input:disabled { background-color: #e9ecef; }
+        .link-text { font-size: 6px; fill: #333; }
+        .name-input { font-size: 0.8rem; margin-left: 5px; }
+        /* Koldt Vand (Blå, Solid) */
+        .link-ror_kv { stroke: #0d6efd; stroke-width: 1.5px; }
+        /* Vandstik Node (Blå firkant eller cirkel) */
+        .node-vandstik circle { stroke: #000; stroke-width: 1px; }
+
+		.info-popover {
+            font-weight: bold;
+            color: #0d6efd; /* Bootstrap Blå */
+            cursor: help;
+            font-size: 0.9em;
+            margin-left: 4px;
+            text-decoration: none;
+        }
+
+		/* Styles til Hjælp Modal */
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .legend-line {
+            width: 20px;
+            height: 0px;
+            display: inline-block;
+            margin-right: 10px;
+            border-top: 3px dashed; /* Stiplet linje */
+        }
+        
+        /* NYT: Normaliser tabel-overskrifter */
+        .card-body th {
+            font-weight: normal;
+        }
+
+        /* Styles til Højrekliks-menu og Undermenu */
+        #context-menu .menu-item {
+            position: relative;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+        #context-menu .menu-item:hover {
+            background-color: #f2f2f2;
+        }
+        /* Pilen der indikerer undermenu */
+        .has-submenu::after {
+            content: "▶";
+            font-size: 0.7em;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+        /* Selve undermenuen */
+        .context-submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: -5px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            min-width: 180px;
+            padding: 5px 0;
+            z-index: 1001;
+        }
+        /* Vis undermenu ved hover */
+        .menu-item:hover .context-submenu {
+            display: block;
+        }
+
+        /* 1. Gør venstre panel klar til animation */
+        #leftPanel {
+            /* Vi animerer bredde, flex-basis (bootstrap), padding og opacitet */
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Sikrer at indholdet ikke flyder over, mens den krymper */
+            overflow: auto; 
+            white-space: nowrap; /* Forhindrer tekst i at wrappe grimt mens den lukker */
+            opacity: 1;
+        }
+
+        /* 2. Klassen der lukker panelet (Vi bruger denne i stedet for d-none) */
+        #leftPanel.sidebar-closed {
+            max-width: 0 !important;
+            flex: 0 0 0 !important; /* Tvinger Bootstrap kolonnen til 0 bredde */
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin: 0 !important;
+            border: none !important; /* Fjerner den grå streg til højre */
+            opacity: 0;
+        }
+
+        /* 3. Gør højre panel "blødt", så det følger med */
+        #rightPanel {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+
