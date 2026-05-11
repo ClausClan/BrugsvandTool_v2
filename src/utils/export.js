@@ -191,10 +191,16 @@ export function loadProjectData(data) {
             const el = document.getElementById(k);
             if (el) {
                 if (el.type === 'checkbox') el.checked = v;
-                else el.value = v;
+                else {
+                    if ((k === 'pln' || k === 'min_tap_tryk') && typeof v === 'number' && v > 1000) {
+                        el.value = v / 1000;
+                    } else {
+                        el.value = v;
+                    }
+                }
             }
         });
-        state.lastConfig = data.config;
+        state.lastConfig = getGlobalConfig();
         toggleAutoDim(data.config.isAuto);
     }
     
