@@ -432,45 +432,33 @@ export function calculateCirculationFlows_VV(model, config) {
     const targetDrop = config.dT; 
     const maxIterations = 100; 
     
-    // Brug min_v_f som minimumshastighed for cirkulationen jf. brugerens ønske
-    const min_v_c_val = (config && config.min_v_f !== undefined) ? config.min_v_f : 0.5;
+    // Brug min_v_c som minimumshastighed for cirkulationen
+    const min_v_c_val = (config && config.min_v_c !== undefined) ? config.min_v_c : 1.0;
 
-    console.group("🚀 DEBUG: Cirkulation Konvergens (VV)");
-    console.log(`Dynamisk Varmekapacitet ved ${meanTemp.toFixed(1)}°C: ${HEAT_CAPACITY_FACTOR.toFixed(1)} J/L·K`);
-    console.log(`Minimum cirkulationshastighed (sat til min_v_f): ${min_v_c_val} m/s`);
+    console.group("🚀 DEBUG: Cirkulation Konvergens (VV) - Hydraulisk Optimering");
+    console.log(`Minimum cirkulationshastighed (min_v_c): ${min_v_c_val} m/s`);
 
-    // TRIN 1: Initialt gæt (inkl. "Warm-Start" til at overholde min_v_f med det samme)
-    calculateHeatLoss_VV(model, config);
+    // Kortlæg hvilke loops der passerer gennem hver node
+    const nodeLoops = new Map();
     model.loops.forEach(l => {
         l.path = getPath(model, l.startNodeId, l.endNodeId);
-        
-        // 1. Beregn termisk flowbehov
-        const totalQ = l.path.reduce((sum, id) => sum + (model.nodes.get(id)?.q_tab || 0), 0);
-        const q_thermal = totalQ / (HEAT_CAPACITY_FACTOR * targetDrop);
-        
-        // 2. Beregn flowbehov for at overholde min_v_f i alle ledninger på stien
-        let q_min_velocity = 0;
         l.path.forEach(nodeId => {
-            const node = model.nodes.get(nodeId);
-            if (node && (node.type === 'ror_vv' || node.type === 'cirkulation_vv') && node.nom_dim) {
-                const mat = node.material;
-                const dim = node.nom_dim;
-                if (mat && dim && ID[mat] && ID[mat][dim]) {
-                    const d_i = ID[mat][dim] / 1000;
-                    const area = Math.PI * Math.pow(d_i / 2, 2);
-                    const q_min_node = min_v_c_val * area * 1000; // l/s
-                    if (q_min_node > q_min_velocity) {
-                        q_min_velocity = q_min_node;
-                    }
-                }
+            if (!nodeLoops.has(nodeId)) {
+                nodeLoops.set(nodeId, new Set());
             }
+            nodeLoops.get(nodeId).add(l);
         });
-        
-        // Sæt det initiale gæt til max af termisk flow og minimumshastigheds-flow
-        l.circ_flow = Math.max(MIN_FLOW, q_thermal, q_min_velocity);
     });
 
-    // TRIN 2: KONVERGENS LOOP
+    // ==========================================
+    // FASE 1: DEN GAMLE TERMISKE OPTIMERING
+    // ==========================================
+    calculateHeatLoss_VV(model, config);
+    model.loops.forEach(l => {
+        const totalQ = l.path.reduce((sum, id) => sum + (model.nodes.get(id)?.q_tab || 0), 0);
+        l.circ_flow = Math.max(MIN_FLOW, totalQ / (HEAT_CAPACITY_FACTOR * targetDrop));
+    });
+
     let iteration = 0;
     let converged = false;
 
@@ -517,7 +505,6 @@ export function calculateCirculationFlows_VV(model, config) {
             }
         }
 
-        // A. Temperatur-tjek og termisk flow-opdatering for hver loop
         model.loops.forEach(l => {
             let actualPathDrop = 0;
             l.path.forEach(nodeId => {
@@ -535,33 +522,122 @@ export function calculateCirculationFlows_VV(model, config) {
             const diff = actualPathDrop - targetDrop;
             if (Math.abs(diff) > maxTempDeviation) maxTempDeviation = Math.abs(diff);
 
-            let newFlow = l.circ_flow;
             if (Math.abs(diff) > 0.05) {
                 let correction = actualPathDrop / targetDrop;
                 if (correction > 1.5) correction = 1.5;
                 if (correction < 0.8) correction = 0.8;
 
-                const targetNewFlow = l.circ_flow * correction;
-                newFlow = (l.circ_flow * 0.7) + (targetNewFlow * 0.3);
-                if (newFlow < MIN_FLOW) newFlow = MIN_FLOW;
+                const newFlow = l.circ_flow * correction;
+                l.circ_flow = (l.circ_flow * 0.7) + (newFlow * 0.3);
+                if (l.circ_flow < MIN_FLOW) l.circ_flow = MIN_FLOW;
                 
                 changesMade = true;
             }
-            l.target_thermal_flow = newFlow;
         });
 
-        // B. Globale underskuds-deling (Deficit Sharing) pass for min_v_f hastighedskravet
-        const nodeLoops = new Map(); // nodeId -> Set of loops
-        model.loops.forEach(l => {
-            l.path.forEach(nodeId => {
-                if (!nodeLoops.has(nodeId)) {
-                    nodeLoops.set(nodeId, new Set());
+        if (!changesMade && maxTempDeviation < 0.05) {
+            converged = true;
+        }
+    }
+    console.log(`Fase 1 (Termisk optimering) færdig efter ${iteration} iterationer.`);
+
+    // ==========================================
+    // FASE 2: INDIVIDUELT FLOW-BOOST
+    // Sikrer at alle loops uafhængigt kan dække min_v_c i deres yderste rør
+    // ==========================================
+    model.loops.forEach(l => {
+        let maxRequiredFlow = l.circ_flow; 
+        l.path.forEach(nodeId => {
+            const node = model.nodes.get(nodeId);
+            const sharingLoops = nodeLoops.get(nodeId);
+            // Kigger kun på udelte rør (hvor kun dette loop passerer)
+            if (sharingLoops && sharingLoops.size === 1 && node && (node.type === 'ror_vv' || node.type === 'cirkulation_vv') && node.nom_dim) {
+                const mat = node.material;
+                const dim = node.nom_dim;
+                if (mat && dim && ID[mat] && ID[mat][dim]) {
+                    const d_i = ID[mat][dim] / 1000;
+                    const area = Math.PI * Math.pow(d_i / 2, 2);
+                    const q_min_node = min_v_c_val * area * 1000; // l/s krav
+                    if (q_min_node > maxRequiredFlow) {
+                        maxRequiredFlow = q_min_node;
+                    }
                 }
-                nodeLoops.get(nodeId).add(l);
-            });
+            }
+        });
+        l.circ_flow = maxRequiredFlow; 
+    });
+    console.log(`Fase 2 (Flow-Boost for udelte rør) færdig.`);
+
+    // ==========================================
+    // FASE 3: OPSKALERING AF FÆLLESRØR
+    // ==========================================
+    calculateCirculationFlowsAggregation_VV(model);
+    let dimsChangedPhase3 = false;
+
+    if (config.isAuto) {
+        model.nodes.forEach(node => {
+            if (node.type === 'cirkulation_vv' && node.nom_dim) {
+                const sharingLoops = nodeLoops.get(node.id);
+                // Vi optimerer primært rør med meget flow (især fællesrør)
+                if (sharingLoops) { // Tillader også optimering af andre hvis nødvendigt
+                    const totalFlow = model.circFlows.get(node.id) || 0;
+                    if (totalFlow > 0.000001) {
+                        const mat = node.material;
+                        const sortedDims = Object.keys(ID[mat]).map(Number).sort((a, b) => a - b);
+                        const currentDimIdx = sortedDims.indexOf(node.nom_dim);
+                        
+                        if (currentDimIdx !== -1) {
+                            let bestDim = node.nom_dim;
+                            // Prøv successivt større rørdimensioner
+                            for (let i = currentDimIdx + 1; i < sortedDims.length; i++) {
+                                const testDim = sortedDims[i];
+                                const test_d_i = ID[mat][testDim] / 1000;
+                                const test_area = Math.PI * Math.pow(test_d_i / 2, 2);
+                                const test_v = (totalFlow / 1000) / test_area;
+                                
+                                // Hvis den nye større dimension stadig holder hastigheden oppe, opgraderer vi!
+                                if (test_v >= min_v_c_val) {
+                                    bestDim = testDim;
+                                } else {
+                                    break; // Hastigheden falder for meget, stop.
+                                }
+                            }
+                            
+                            if (bestDim !== node.nom_dim) {
+                                node.nom_dim = bestDim;
+                                dimsChangedPhase3 = true;
+                            }
+                        }
+                    }
+                }
+            }
         });
 
-        const loopAdditions = new Map(); // loopId -> max share addition
+        if (dimsChangedPhase3) {
+            calculateInsulation(model, config);
+            calculateHeatLoss_VV(model, config);
+            console.log(`Fase 3 (Fællesrør dimensionering): Rørdimensioner blev opgraderet for at spare tryktab.`);
+        } else {
+            console.log(`Fase 3 (Fællesrør dimensionering): Ingen fællesrør kunne opgraderes.`);
+        }
+    } else {
+        console.log(`Fase 3 (Fællesrør dimensionering) sprunget over, da Auto-Dim er slået fra.`);
+    }
+
+    // ==========================================
+    // FASE 4: SIKKERHEDS-LOOP (Deficit Sharing for låste/overdimensionerede rør)
+    // ==========================================
+    let extraLoopIteration = 0;
+    let velocityRequirementsMet = false;
+    const maxExtraIterations = 10; 
+
+    while (!velocityRequirementsMet && extraLoopIteration < maxExtraIterations) {
+        extraLoopIteration++;
+        let deficitFound = false;
+        
+        calculateCirculationFlowsAggregation_VV(model);
+
+        const loopAdditions = new Map();
         model.loops.forEach(l => loopAdditions.set(l.id, 0));
 
         model.nodes.forEach(node => {
@@ -571,15 +647,16 @@ export function calculateCirculationFlows_VV(model, config) {
                 if (mat && dim && ID[mat] && ID[mat][dim]) {
                     const d_i = ID[mat][dim] / 1000;
                     const area = Math.PI * Math.pow(d_i / 2, 2);
-                    const q_min_node = min_v_c_val * area * 1000; // l/s
+                    const q_min_node = min_v_c_val * area * 1000; 
                     const totalFlow = model.circFlows.get(node.id) || 0;
 
-                    if (totalFlow < q_min_node) {
+                    if (totalFlow > 0.000001 && totalFlow < q_min_node) {
                         const deficit = q_min_node - totalFlow;
                         const sharingLoops = nodeLoops.get(node.id) || new Set();
                         const numLoops = sharingLoops.size;
 
                         if (numLoops > 0) {
+                            deficitFound = true;
                             const share = deficit / numLoops;
                             sharingLoops.forEach(l => {
                                 const currentMax = loopAdditions.get(l.id) || 0;
@@ -593,23 +670,20 @@ export function calculateCirculationFlows_VV(model, config) {
             }
         });
 
-        // C. Opdater og under-relaxer loop-flows baseret på max(thermal, velocity-required)
-        model.loops.forEach(l => {
-            const requiredVelFlow = l.circ_flow + (loopAdditions.get(l.id) || 0);
-            const targetFlow = Math.max(l.target_thermal_flow, requiredVelFlow);
-
-            if (Math.abs(l.circ_flow - targetFlow) > 0.0001) {
-                l.circ_flow = (l.circ_flow * 0.7) + (targetFlow * 0.3);
-                changesMade = true;
-            }
-        });
-
-        if (!changesMade && maxTempDeviation < 0.05) {
-            converged = true;
+        if (deficitFound) {
+            model.loops.forEach(l => {
+                const addition = loopAdditions.get(l.id) || 0;
+                if (addition > 0) {
+                    l.circ_flow += addition;
+                }
+            });
+        } else {
+            velocityRequirementsMet = true;
         }
     }
 
     calculateCirculationFlowsAggregation_VV(model);
+    console.log(`Fase 4 (Sikkerheds-flowdeling) færdig efter ${extraLoopIteration} gennemløb.`);
     console.groupEnd();
     return model;
 }

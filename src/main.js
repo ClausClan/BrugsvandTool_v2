@@ -172,10 +172,10 @@ export function getGlobalConfig() {
         isAuto: document.getElementById('autoDimToggle')?.checked || false,
         dimPrinciple: document.getElementById('dimPrinciple')?.value || 'combined',
         max_dp_m: getVal('max_dp_m', 150),
-        max_v_f: getVal('max_v_f', 1.5),
-        min_v_f: getVal('min_v_f', 0.5),
-        max_v_c: getVal('max_v_c', 1.5),
-        min_v_c: getVal('min_v_c', 0.2),
+        max_v_f: getVal('max_v_f', 2.0),
+        min_v_f: getVal('min_v_f', 1.0),
+        max_v_c: getVal('max_v_c', 2.0),
+        min_v_c: getVal('min_v_c', 1.0),
         forsyningens_kote: getVal('forsyningens_kote', 0)
     };
 }
