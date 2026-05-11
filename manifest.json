@@ -1,0 +1,22 @@
+{
+  "name": "Varmt Brugsvand Tool",
+  "short_name": "VV Tool",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d6efd",
+  "description": "Dimensionering af varmt brugsvand og cirkulation jf. DS 439 og DS 452.",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192_BV.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512_BV.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
